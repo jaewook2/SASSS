@@ -14,7 +14,11 @@ class SemantPreprocessor ():
         self.max_duration = max_chunk_duration  
         self.max_images = fps*max_chunk_duration
         self.semantic_fname = semantic_fname
-
+        
+    def folder_init (self):
+        if os.path.exists(self.output_dir):
+            print ("Remove folders in output_dir of preprocessing", self.output_dir)
+            shutil.rmtree(self.output_dir)
         
     def load_semantic_info (self, semantic_fname = None):
         # According to the data format of semantic_info, this f should be updated
@@ -26,9 +30,13 @@ class SemantPreprocessor ():
         frame_risk_list = list(zip(semantic_df["frame"], semantic_df["risk"], semantic_df["level"]))
         return frame_risk_list
     
-    def splitSegemnt(self, filename, level, folder_index, file_index, new_folder = False):
+    def splitSegemnt(self, filename, risk, level, folder_index, file_index, new_folder = False, privacy = False):
         # Create New folder for aggreating the jpg files based on risk or max_images
-        folder_name = f"segment_{folder_index:04d}_{level}"
+        if privacy == False:
+            folder_name = f"segment_{folder_index:04d}_clear_{risk}_{level}"
+        else:
+            folder_name = f"segment_{folder_index:04d}_blur_{risk}_{level}"
+
         folder_path = self.output_dir+"/"+folder_name
 
         if new_folder == True:
@@ -42,7 +50,7 @@ class SemantPreprocessor ():
         return folder_name
 
 
-    def splitSegements_all(self, frame_risk_list):
+    def splitSegements_all(self, frame_risk_list, privacy=False):
         folder_index = 0
         file_index = 0
         last_level  = -1
@@ -76,12 +84,12 @@ class SemantPreprocessor ():
                     images_folder_list.append(imageList_in_folder)
                 file_index = 0
                 folder_index = folder_index+1
-                folder_name = self.splitSegemnt(filename, level, folder_index, file_index, new_folder = True)
+                folder_name = self.splitSegemnt(filename, risk,level, folder_index, file_index, new_folder = True, privacy=privacy)
                 folder_names.append(folder_name)
                 imageList_in_folder = [filename]
             else :
                 file_index = file_index+1
-                _ = self.splitSegemnt(filename, level, folder_index, file_index, new_folder = False)
+                _ = self.splitSegemnt(filename, risk, level, folder_index, file_index, new_folder = False)
                 imageList_in_folder.append(filename)
             last_level = level
 
@@ -92,15 +100,12 @@ class SemantPreprocessor ():
         if  semantic_fname == None:
             semantic_fname = self.semantic_fname
         semantic_df = load_semantic_info(semantic_fname)
-        frame_risk_list = list(zip(semantic_df["filename"], semantic_df["risk_level"]))
+        frame_risk_list = list(zip(semantic_df["frame"], semantic_df["risk"], semantic_df["level"]))
 
-        folder_names, images_folder_list = self.splitSegements_all(frame_risk_list)
+        folder_names, images_folder_list = self.splitSegements_all(frame_risk_list,privacy)
         return folder_names, images_folder_list
 
-    def folder_init (self):
-        if os.path.exists(self.output_dir):
-            print ("Remove folders in output_dir of preprocessing", self.output_dir)
-            shutil.rmtree(self.output_dir)
+
 
 
 
