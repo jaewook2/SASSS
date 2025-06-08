@@ -18,7 +18,7 @@ class SemantEncoder ():
             shutil.rmtree(path)
         Path(path).mkdir(parents=True, exist_ok=True)
 
-    def add_semantic_tag_to_m3u8(self, m3u8_path, risk_type, risk_leve):
+    def add_semantic_tag_to_m3u8(self, m3u8_path, risk_type, risk_leve,bool_privacy = 0):
         # add semantic tag and level tags that are newly defined to m3u8 files
         with open(m3u8_path, "r") as f:
             lines = f.readlines()
@@ -31,8 +31,10 @@ class SemantEncoder ():
             output_lines.append(line)
             # inserts the semantic_type and level tags for the first line.
             if not inserted and line.startswith("#EXTINF:"):
-                output_lines.insert(-1, f"#EXT-X-SEMANTICTYPE:{risk_type}\n")
+                output_lines.insert(-1, f"#EXT-X-SEMANTICTYPE:{int(risk_type)}\n")
                 output_lines.insert(-1, f"#EXT-X-SEMANTICLEVEL:{risk_tag}\n")
+                output_lines.insert(-1, f"#EXT-X-PRIVACY:{int(bool_privacy)}\n")
+
                 inserted = True
 
         # update the m3u8 file with the modified contents 
@@ -40,14 +42,17 @@ class SemantEncoder ():
             f.writelines(output_lines)
         print(f"[✔] Inserted semantic tag: #EXT-X-SEMANTICTYPE:{risk_type} → {m3u8_path}")
         print(f"[✔] Inserted semantic tag: #EXT-X-SEMANTICLEVEL:{risk_tag} → {m3u8_path}")
+        print(f"[✔] Inserted semantic tag: #EXT-X-PRIVACY:{bool_privacy} → {m3u8_path}")
+
         
-    def encode_per_folder(self, input_foler_path,risk_type, risk_level, index, segment_prefix = "720p", scale = "scale=1280:720", start_number=0):
+    def encode_per_folder(self, input_foler_path,risk_type, risk_level,privacy, index, segment_prefix = "720p", scale = "scale=1280:720", start_number=0):
         # encoding the jps images in the input_foler_path to the ts files (with scale)
         # Only one TS file and one M3U8 file are generated in output_temp_path 
         #   (temporary files will be modified and moved later)
         input_pattern = input_foler_path+"/frame%04d.jpg"
+                    
 
-        output_temp_path = self.output_dir_temp+'/temp_'+segment_prefix+'_'+str(index) 
+        output_temp_path = self.output_dir_temp+'/temp_'+segment_prefix+'_'+privacy +'_'+str(index) 
         self.folder_init(output_temp_path)
         Path(output_temp_path).mkdir(parents=True, exist_ok=True)
 
@@ -74,12 +79,17 @@ class SemantEncoder ():
         subprocess.run(cmd, check=True)
         print(f"[✔] HLS encoded: {m3u8_path}")
         # update semantic type and level tags to m3u8 file
-        self.add_semantic_tag_to_m3u8(m3u8_path, risk_type, risk_level)    
+        if privacy == 'blur': 
+            bool_privacy = 1
+        else:
+            bool_privacy = 0
+        
+        self.add_semantic_tag_to_m3u8(m3u8_path, risk_type, risk_level, bool_privacy=bool_privacy )    
         
         return output_temp_path
         
     def create_init_m3u8(self, 
-#                         playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False)]):
+                         #playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False)]):
                          playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False), 
                                           ("1080p", "1920x1080", 5000000, True),("720p",  "1280x720",  2800000,True),("480p",  "854x480",   1400000,True)]):
 
@@ -94,10 +104,11 @@ class SemantEncoder ():
         lines = ["#EXTM3U", "#EXT-X-VERSION:3\n"]
 
         for filename, resolution, bandwidth, privacy in playlist_info:
-            lines.append(f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},RESOLUTION={resolution},NAME={filename}")
             if privacy == True:
+                lines.append(f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},RESOLUTION={resolution},NAME={filename}_privacy")
                 filename = filename+"_privacy.m3u8"
             else:     
+                lines.append(f"#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},RESOLUTION={resolution},NAME={filename}")
                 filename = filename+".m3u8"
             lines.append(filename)
             
@@ -124,39 +135,51 @@ class SemantEncoder ():
             dst = self.output_dir + "/" + f"{segment_prefix}_{int(ts_index):04d}.ts"
         shutil.copyfile(src, dst)
 
+        m3u8_path = temp_folder_path+"/"+ f"{segment_prefix}.m3u8"
 
         if privacy == True:
-            m3u8_path = temp_folder_path+"/"+ f"{segment_prefix}_privacy.m3u8"
             output_m3u8_path = self.output_dir+"/"+ f"{segment_prefix}_privacy.m3u8"
         else:
-            m3u8_path = temp_folder_path+"/"+ f"{segment_prefix}.m3u8"
             output_m3u8_path = self.output_dir+"/"+ f"{segment_prefix}.m3u8"
         
         # update the main m3u8 files        
-        if int(ts_index) == 0:
+        if int(ts_index) == 1:
             shutil.copyfile(m3u8_path, output_m3u8_path)
-            if privacy == True:
-                with open(output_m3u8_path, "r") as f:
-                    lines = f.readlines()
-                updated_lines = [line.replace(f"{segment_prefix}_{int(ts_index):04d}.ts", f"{segment_prefix}_{int(ts_index):04d}_privacy.ts") for line in lines]
-                with open(output_m3u8_path, "w") as f:
-                    f.writelines(updated_lines)
+            with open(output_m3u8_path, "r") as f:
+                lines = f.readlines()
+            original_name = f"{segment_prefix}_{int(0):04d}.ts"
+            if privacy:
+                privacy_name = f"{segment_prefix}_{int(ts_index):04d}_privacy.ts"
+            else:
+                privacy_name = f"{segment_prefix}_{int(ts_index):04d}.ts"
+
+            updated_lines = [
+                line.replace(original_name, privacy_name)
+                for line in lines
+            ]
+            with open(output_m3u8_path, "w") as f:
+                f.writelines(updated_lines)
+
         else:
-            self.append_m3u8_file(m3u8_path, output_m3u8_path,segment_prefix, ts_index)
+            self.append_m3u8_file(m3u8_path, output_m3u8_path,segment_prefix, ts_index, privacy = privacy)
         
     # m3u8 파일 업데이트
-    def append_m3u8_file(self, m3u8_path, output_m3u8_path, segment_prefix, ts_index):
+    def append_m3u8_file(self, m3u8_path, output_m3u8_path, segment_prefix, ts_index, privacy = False):
         with open(m3u8_path, "r") as f:
             lines = f.readlines()
 
         for i in range(len(lines)):
             if lines[i].startswith("#EXT-X-SEMANTICTYPE"):
-                if i + 3 <= len(lines):
+                if i + 4 <= len(lines):
                     risk_type_line ='\n'+lines[i].strip()+'\n'
                     risk_level_line =lines[i+1].strip()+'\n'
-                    extinf_line = lines[i+2].strip()+'\n'
-                    ts_line = f"{segment_prefix}_{int(ts_index):04d}.ts\n"
-                    output_lines=[risk_type_line, risk_level_line, extinf_line, ts_line]
+                    privacy_line = lines[i+2].strip()+'\n'
+                    extinf_line = lines[i+3].strip()+'\n'
+                    if privacy:
+                        ts_line = f"{segment_prefix}_{int(ts_index):04d}_privacy.ts\n"
+                    else:
+                        ts_line = f"{segment_prefix}_{int(ts_index):04d}.ts\n"
+                    output_lines=[risk_type_line, risk_level_line, privacy_line, extinf_line, ts_line]
         
 
         # 기존 출력 파일에서 #EXT-X-ENDLIST 제거
@@ -173,9 +196,9 @@ class SemantEncoder ():
 
 
             
-    def encoding (self, folder_names, encoding_list = [("1080p","scale=1920:1080" ),("720p","scale=1280:720" ),("480p","scale=854:480" ) ]):
+    def encoding (self, folder_names, encoding_list = [("1080p","scale=1920:1080" ),("720p","scale=1280:720" ),("480p","scale=854:480" )]):
         start_number = 0
-        file_index = 0
+        
         self.folder_init(self.output_dir_temp)
         self.folder_init(self.output_dir)
         # create master m3u8
@@ -185,12 +208,16 @@ class SemantEncoder ():
             risk_level = folder_name.split("_")[-1]
             risk_type = folder_name.split("_")[-2]
             privacy = folder_name.split("_")[-3]
+            file_index =  folder_name.split("_")[-4]
+            bool_privacy = False
+            if privacy == "blur":
+                bool_privacy = True
 
             input_foler_path = self.input_dir + "/" + folder_name
             
             for segment_prefix, scale in encoding_list:
               # 확질 별로 디코딩 : temp folder에 생성
-                temp_folder_path = self.encode_per_folder(input_foler_path, risk_type, risk_level, file_index, segment_prefix=segment_prefix, scale=scale, start_number=0)
-                self.update_ts_m3u8(temp_folder_path, file_index,  segment_prefix=segment_prefix, privacy = privacy)
-            file_index = file_index+1
+                temp_folder_path = self.encode_per_folder(input_foler_path, risk_type, risk_level,privacy, file_index, segment_prefix=segment_prefix, scale=scale, start_number=0)
+                self.update_ts_m3u8(temp_folder_path, file_index,  segment_prefix=segment_prefix, privacy = bool_privacy)
+        return file_index 
 
