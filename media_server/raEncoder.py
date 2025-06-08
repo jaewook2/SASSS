@@ -89,15 +89,17 @@ class SemantEncoder ():
         return output_temp_path
         
     def create_init_m3u8(self, 
-                         #playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False)]):
-                         playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False), 
-                                          ("1080p", "1920x1080", 5000000, True),("720p",  "1280x720",  2800000,True),("480p",  "854x480",   1400000,True)]):
+                         playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False)]):
+                         #playlist_info = [("1080p", "1920x1080", 5000000, False),("720p",  "1280x720",  2800000,False),("480p",  "854x480",   1400000,False), 
+                         #                 ("1080p", "1920x1080", 5000000, True),("720p",  "1280x720",  2800000,True),("480p",  "854x480",   1400000,True)]):
 
         """
+        수정 예쩡
         crate inital m3u8 files in output_dir according to 
         the playlist_info: list of tuples - [(m3u8_filename, resolution_str, bandwidth, privacy_boolean)]
         e.g. [("1080p", "1920x1080", 5000000, False), ("720p", "1280x720", 2800000, False), ...]
         """
+        
         output_dir = Path(self.output_dir)
         master_path = output_dir / "master.m3u8"
 

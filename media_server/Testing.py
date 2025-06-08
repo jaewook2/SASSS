@@ -23,7 +23,7 @@ if preprocTest == True:
     # testing semantic info
     frame_risk_list = prepro.load_semantic_info()
     
-    privacy = True
+    privacy = False
     folder_index = 0
     file_index = 0
     last_level  = -1
